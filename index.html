@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anaconda & Python 3.12 Environment Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        anaconda: {
+                            50: '#f0fbf0',
+                            500: '#43B02A',
+                            600: '#359320',
+                            700: '#2a751a'
+                        },
+                        pyblue: {
+                            500: '#306998',
+                            600: '#245278'
+                        },
+                        pyyellow: {
+                            500: '#FFD43B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Inter & FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        code, pre { font-family: 'Fira Code', monospace; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+        .dark .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand & Env Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-anaconda-500/10 border border-anaconda-500/30 flex items-center justify-center text-anaconda-500 font-bold text-xl shadow-sm">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg text-slate-900 dark:text-white leading-tight">CondaEnv Manager</h1>
+                        <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-anaconda-500/15 text-anaconda-600 dark:text-anaconda-500 border border-anaconda-500/30">
+                            Python 3.12.2
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                        Môi trường hoạt động: <span id="active-env-display" class="font-semibold text-slate-700 dark:text-slate-300">py312_datascience</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Header Controls & Actions -->
+            <div class="flex items-center gap-3">
+                <!-- Environment Switcher Dropdown -->
+                <div class="relative inline-block text-left">
+                    <select id="env-select" onchange="switchEnvironment(this.value)" class="bg-slate-100 dark:bg-slate-800 text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 rounded-lg px-3 py-2 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-anaconda-500 cursor-pointer">
+                        <option value="py312_datascience">py312_datascience (Active)</option>
+                        <option value="base">base (Conda Root)</option>
+                        <option value="pyspark_env">pyspark_env (Python 3.12)</option>
+                        <option value="web_dev_312">web_dev_312 (Python 3.12)</option>
+                    </select>
+                </div>
+
+                <!-- Dark / Light Theme Toggle -->
+                <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-anaconda-500 dark:hover:text-anaconda-500 transition border border-slate-200 dark:border-slate-700" title="Chuyển chế độ Sáng/Tối">
+                    <i id="theme-icon" class="fa-solid fa-moon text-lg"></i>
+                </button>
+
+                <!-- Fast Export Dropdown -->
+                <div class="relative">
+                    <button onclick="openExportModal()" class="flex items-center gap-2 bg-gradient-to-r from-anaconda-600 to-emerald-600 hover:from-anaconda-500 hover:to-emerald-500 text-white font-medium text-xs sm:text-sm px-4 py-2 rounded-lg shadow-md shadow-anaconda-500/20 transition">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span class="hidden sm:inline">Xuất Cấu Hình</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-8">
+
+        <!-- Section 1: Overview Cards Grid -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-gauge-high text-anaconda-500"></i> Thông Tin Tổng Quan Môi Trường
+                </h2>
+                <span class="text-xs text-slate-500 dark:text-slate-400">Cập nhật lần cuối: Vài giây trước</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1: Conda Env Name -->
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-anaconda-500/50 transition">
+                    <div class="flex items-center justify-between text-slate-400 mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Môi trường Conda</span>
+                        <div class="w-8 h-8 rounded-lg bg-anaconda-500/10 text-anaconda-500 flex items-center justify-center">
+                            <i class="fa-solid fa-terminal text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="text-xl font-bold text-slate-900 dark:text-white truncate" id="card-env-name">py312_datascience</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Active Conda Env
+                    </div>
+                </div>
+
+                <!-- Card 2: Python Version -->
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-pyblue-500/50 transition">
+                    <div class="flex items-center justify-between text-slate-400 mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Phiên bản Python</span>
+                        <div class="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center">
+                            <i class="fa-brands fa-python text-lg"></i>
+                        </div>
+                    </div>
+                    <div class="text-xl font-bold text-slate-900 dark:text-white">3.12.2 (64-bit)</div>
+                    <div class="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt"></i> PEP 695 & Faster CPython
+                    </div>
+                </div>
+
+                <!-- Card 3: OS Information -->
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-purple-500/50 transition">
+                    <div class="flex items-center justify-between text-slate-400 mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Hệ Điều Hành</span>
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                            <i class="fa-solid fa-laptop text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="text-xl font-bold text-slate-900 dark:text-white" id="card-os-info">Windows 11 Pro</div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 truncate" id="card-arch-info">x86_64 / Build 22631</div>
+                </div>
+
+                <!-- Card 4: Anaconda Path -->
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:border-amber-500/50 transition">
+                    <div class="flex items-center justify-between text-slate-400 mb-3">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Đường dẫn Conda Prefix</span>
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                            <i class="fa-solid fa-folder-tree text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="text-xs font-mono text-slate-800 dark:text-slate-200 truncate bg-slate-100 dark:bg-slate-800 p-2 rounded-lg" id="card-path-info" title="C:\Users\Developer\anaconda3\envs\py312_datascience">
+                        C:\anaconda3\envs\py312_ds
+                    </div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center justify-between">
+                        <span>Tổng gói đã cài:</span>
+                        <span class="font-bold text-anaconda-500" id="total-packages-count">12 packages</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Main Layout Grid (Package Manager & Cheatsheet) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            <!-- Left 2 Columns: Package Manager -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    
+                    <!-- Table Header & Controls -->
+                    <div class="p-5 border-b border-slate-200 dark:border-slate-800 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-cubes text-anaconda-500"></i> Quản Lý Thư Viện (Packages)
+                                </h3>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Danh sách gói đã được cài đặt trong môi trường hiện tại</p>
+                            </div>
+                            
+                            <!-- Search Bar -->
+                            <div class="relative w-full sm:w-64">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="text" id="package-search" oninput="filterPackages()" placeholder="Tìm kiếm gói (vd: pandas, spark)..." 
+                                    class="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-anaconda-500 text-slate-800 dark:text-slate-200 placeholder-slate-400">
+                            </div>
+                        </div>
+
+                        <!-- Category Filter Chips -->
+                        <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 text-xs">
+                            <button onclick="setCategoryFilter('all')" class="chip-filter active px-3 py-1.5 rounded-lg bg-anaconda-500 text-white font-medium transition shrink-0">Tất cả</button>
+                            <button onclick="setCategoryFilter('Data Science')" class="chip-filter px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition shrink-0">
+                                <i class="fa-solid fa-chart-pie text-sky-500 mr-1"></i> Data Science
+                            </button>
+                            <button onclick="setCategoryFilter('Machine Learning')" class="chip-filter px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition shrink-0">
+                                <i class="fa-solid fa-brain text-purple-500 mr-1"></i> Machine Learning
+                            </button>
+                            <button onclick="setCategoryFilter('Big Data')" class="chip-filter px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition shrink-0">
+                                <i class="fa-solid fa-network-wired text-amber-500 mr-1"></i> Big Data
+                            </button>
+                            <button onclick="setCategoryFilter('Core')" class="chip-filter px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition shrink-0">
+                                <i class="fa-solid fa-code text-emerald-500 mr-1"></i> Core / Utils
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Packages Table -->
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs uppercase font-semibold border-b border-slate-200 dark:border-slate-800">
+                                    <th class="py-3 px-5">Tên Gói</th>
+                                    <th class="py-3 px-4">Phiên Bản</th>
+                                    <th class="py-3 px-4">Phân Loại</th>
+                                    <th class="py-3 px-4">Trạng Thái</th>
+                                    <th class="py-3 px-4 text-right">Hành Động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packages-table-body" class="divide-y divide-slate-200 dark:divide-slate-800 text-xs sm:text-sm">
+                                <!-- JS will dynamically populate packages here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table Footer -->
+                    <div class="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span id="filtered-count-text">Hiển thị 12 / 12 gói</span>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Tất cả các gói tương thích hoàn toàn với Python 3.12
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Conda Cheatsheet & Python 3.12 Highlights -->
+            <div class="space-y-6">
+
+                <!-- Conda Commands Quick Cheatsheet -->
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-terminal text-anaconda-500"></i> Tra Cứu Lệnh Conda Hữu Ích
+                        </h3>
+                        <span class="text-[10px] uppercase tracking-wider font-bold text-anaconda-500 bg-anaconda-500/10 px-2 py-0.5 rounded">Cheat Sheet</span>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <!-- Command Item 1 -->
+                        <div class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 group hover:border-anaconda-500/50 transition">
+                            <div class="flex justify-between items-center text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">Tạo env Python 3.12 mới</span>
+                                <button onclick="copyToClipboard('conda create -n myenv python=3.12 anaconda -y')" class="hover:text-anaconda-500 transition" title="Sao chép">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-anaconda-600 dark:text-anaconda-400 font-mono block overflow-x-auto">conda create -n myenv python=3.12 anaconda -y</code>
+                        </div>
+
+                        <!-- Command Item 2 -->
+                        <div class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 group hover:border-anaconda-500/50 transition">
+                            <div class="flex justify-between items-center text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">Kích hoạt môi trường</span>
+                                <button onclick="copyToClipboard('conda activate py312_datascience')" class="hover:text-anaconda-500 transition" title="Sao chép">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-anaconda-600 dark:text-anaconda-400 font-mono block overflow-x-auto">conda activate py312_datascience</code>
+                        </div>
+
+                        <!-- Command Item 3 -->
+                        <div class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 group hover:border-anaconda-500/50 transition">
+                            <div class="flex justify-between items-center text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">Cài đặt gói qua conda-forge</span>
+                                <button onclick="copyToClipboard('conda install -c conda-forge pyspark -y')" class="hover:text-anaconda-500 transition" title="Sao chép">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-anaconda-600 dark:text-anaconda-400 font-mono block overflow-x-auto">conda install -c conda-forge pyspark -y</code>
+                        </div>
+
+                        <!-- Command Item 4 -->
+                        <div class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 group hover:border-anaconda-500/50 transition">
+                            <div class="flex justify-between items-center text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">Xuất file cấu hình YAML</span>
+                                <button onclick="copyToClipboard('conda env export > environment.yml')" class="hover:text-anaconda-500 transition" title="Sao chép">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-anaconda-600 dark:text-anaconda-400 font-mono block overflow-x-auto">conda env export > environment.yml</code>
+                        </div>
+
+                        <!-- Command Item 5 -->
+                        <div class="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700/60 group hover:border-anaconda-500/50 transition">
+                            <div class="flex justify-between items-center text-slate-500 dark:text-slate-400 mb-1">
+                                <span class="font-medium text-slate-700 dark:text-slate-300">Tạo lại Env từ file environment.yml</span>
+                                <button onclick="copyToClipboard('conda env create -f environment.yml')" class="hover:text-anaconda-500 transition" title="Sao chép">
+                                    <i class="fa-regular fa-copy"></i>
+                                </button>
+                            </div>
+                            <code class="text-anaconda-600 dark:text-anaconda-400 font-mono block overflow-x-auto">conda env create -f environment.yml</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Python 3.12 Feature Highlights -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 border border-slate-700 shadow-md space-y-3">
+                    <div class="flex items-center gap-2 text-pyyellow-500 font-bold text-sm">
+                        <i class="fa-brands fa-python text-lg"></i>
+                        <span>Điểm Nổi Bật Python 3.12</span>
+                    </div>
+                    <ul class="text-xs text-slate-300 space-y-2 list-disc list-inside">
+                        <li><strong>Tối ưu hiệu năng:</strong> CPython 3.12 nhanh hơn trung bình 5-10% so với 3.11.</li>
+                        <li><strong>Cú pháp Type Parameter (PEP 695):</strong> Khai báo generic gọn gàng hơn với từ khóa <code class="text-sky-300">type</code>.</li>
+                        <li><strong>F-string nâng cấp:</strong> Hỗ trợ lồng biểu thức và xuống dòng tự do hơn.</li>
+                        <li><strong>Cảnh báo lỗi thông minh:</strong> Gợi ý sửa lỗi ImportError và NameError chính xác hơn.</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-6">
+            
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-anaconda-500/10 text-anaconda-500 flex items-center justify-center font-bold text-lg">
+                        <i class="fa-solid fa-file-code"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Xuất File Cấu Hình Môi Trường</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Tải xuống hoặc sao chép tập tin cấu hình sẵn sàng tái lập</p>
+                    </div>
+                </div>
+                <button onclick="closeExportModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Tab selection for Export Type -->
+            <div class="flex border-b border-slate-200 dark:border-slate-800 text-sm">
+                <button id="tab-yml-btn" onclick="switchExportTab('yml')" class="px-4 py-2 font-semibold text-anaconda-500 border-b-2 border-anaconda-500 flex items-center gap-2">
+                    <i class="fa-solid fa-file-lines"></i> environment.yml (Conda)
+                </button>
+                <button id="tab-txt-btn" onclick="switchExportTab('txt')" class="px-4 py-2 font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-file-text"></i> requirements.txt (Pip)
+                </button>
+            </div>
+
+            <!-- Code Preview Box -->
+            <div class="relative">
+                <pre id="export-preview" class="bg-slate-900 text-slate-200 text-xs p-4 rounded-xl border border-slate-800 h-64 overflow-y-auto custom-scrollbar font-mono leading-relaxed"></pre>
+                <button onclick="copyExportContent()" class="absolute top-3 right-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i class="fa-regular fa-copy"></i> Copy
+                </button>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button onclick="closeExportModal()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                    Hủy Bỏ
+                </button>
+                <button onclick="downloadExportFile()" class="px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-anaconda-500 hover:bg-anaconda-600 text-white shadow-lg shadow-anaconda-500/25 transition flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Tải Tải Xuất File
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Data Store for Environment Packages
+        const environmentsData = {
+            "py312_datascience": [
+                { name: "numpy", version: "1.26.4", category: "Data Science", status: "Up-to-date", desc: "Thư viện tính toán mảng đa chiều hiệu năng cao" },
+                { name: "pandas", version: "2.2.1", category: "Data Science", status: "Up-to-date", desc: "Cấu trúc dữ liệu & công cụ phân tích dữ liệu" },
+                { name: "pyspark", version: "3.5.1", category: "Big Data", status: "Up-to-date", desc: "Giao diện Python cho Apache Spark" },
+                { name: "scipy", version: "1.12.0", category: "Data Science", status: "Up-to-date", desc: "Giải thuật toán học và khoa học" },
+                { name: "matplotlib", version: "3.8.3", category: "Data Science", status: "Up-to-date", desc: "Thư viện vẽ biểu đồ và trực quan hóa 2D" },
+                { name: "scikit-learn", version: "1.4.1.post1", category: "Machine Learning", status: "Up-to-date", desc: "Thuật toán học máy và khai phá dữ liệu" },
+                { name: "torch", version: "2.2.1", category: "Machine Learning", status: "Update Available", desc: "Khung làm việc Deep Learning (PyTorch)" },
+                { name: "seaborn", version: "0.13.2", category: "Data Science", status: "Up-to-date", desc: "Trực quan hóa dữ liệu thống kê dựa trên Matplotlib" },
+                { name: "polars", version: "0.20.15", category: "Data Science", status: "Up-to-date", desc: "DataFrames siêu nhanh viết bằng Rust" },
+                { name: "jupyterlab", version: "4.1.2", category: "Core", status: "Up-to-date", desc: "Môi trường phát triển tương tác Jupyter" },
+                { name: "requests", version: "2.31.0", category: "Core", status: "Up-to-date", desc: "Thư viện HTTP cho Python" },
+                { name: "pydantic", version: "2.6.4", category: "Core", status: "Up-to-date", desc: "Kiểm tra dữ liệu và cài đặt bằng Python type hints" }
+            ],
+            "base": [
+                { name: "conda", version: "24.1.2", category: "Core", status: "Up-to-date", desc: "Trình quản lý gói và môi trường Conda" },
+                { name: "python", version: "3.12.2", category: "Core", status: "Up-to-date", desc: "Python Interpreter" },
+                { name: "pip", version: "24.0", category: "Core", status: "Up-to-date", desc: "Trình cài đặt gói Python" },
+                { name: "anaconda-navigator", version: "2.5.2", category: "Core", status: "Up-to-date", desc: "Giao diện đồ họa Anaconda GUI" }
+            ],
+            "pyspark_env": [
+                { name: "pyspark", version: "3.5.1", category: "Big Data", status: "Up-to-date", desc: "Apache Spark Python API" },
+                { name: "py4j", version: "0.10.9.7", category: "Big Data", status: "Up-to-date", desc: "Kết nối Python với Java Virtual Machine" },
+                { name: "numpy", version: "1.26.4", category: "Data Science", status: "Up-to-date", desc: "Numpy mảng cho tính toán Spark" },
+                { name: "findspark", version: "2.0.1", category: "Big Data", status: "Up-to-date", desc: "Tự động thêm PySpark vào sys.path" }
+            ],
+            "web_dev_312": [
+                { name: "fastapi", version: "0.110.0", category: "Core", status: "Up-to-date", desc: "Web framework hiện đại, hiệu năng cao" },
+                { name: "uvicorn", version: "0.28.0", category: "Core", status: "Up-to-date", desc: "ASGI server siêu nhanh" },
+                { name: "sqlalchemy", version: "2.0.28", category: "Core", status: "Up-to-date", desc: "Python SQL Toolkit và ORM" },
+                { name: "jinja2", version: "3.1.3", category: "Core", status: "Up-to-date", desc: "Template engine cho Python" }
+            ]
+        };
+
+        // Current UI State
+        let currentEnv = "py312_datascience";
+        let currentFilterCategory = "all";
+        let activeExportType = "yml";
+
+        // Initialize App on Load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderPackagesTable();
+            updateOverviewInfo();
+        });
+
+        // Theme Toggle Handler
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.className = 'fa-solid fa-sun text-amber-500 text-lg';
+            } else {
+                html.classList.add('dark');
+                icon.className = 'fa-solid fa-moon text-lg';
+            }
+        }
+
+        // Environment Switcher
+        function switchEnvironment(envName) {
+            currentEnv = envName;
+            document.getElementById('active-env-display').textContent = envName;
+            document.getElementById('card-env-name').textContent = envName;
+            
+            // Update OS path demo based on env
+            const pathElem = document.getElementById('card-path-info');
+            pathElem.textContent = `C:\\anaconda3\\envs\\${envName}`;
+            pathElem.title = `C:\\anaconda3\\envs\\${envName}`;
+
+            renderPackagesTable();
+            showToast(`Đã chuyển sang môi trường: ${envName}`);
+        }
+
+        // Render Package Table
+        function renderPackagesTable() {
+            const tbody = document.getElementById('packages-table-body');
+            const searchQuery = document.getElementById('package-search').value.toLowerCase().trim();
+            const packages = environmentsData[currentEnv] || [];
+
+            const filtered = packages.filter(pkg => {
+                const matchesSearch = pkg.name.toLowerCase().includes(searchQuery) || pkg.desc.toLowerCase().includes(searchQuery);
+                const matchesCategory = currentFilterCategory === 'all' || pkg.category === currentFilterCategory;
+                return matchesSearch && matchesCategory;
+            });
+
+            // Update Counts
+            document.getElementById('total-packages-count').textContent = `${packages.length} packages`;
+            document.getElementById('filtered-count-text').textContent = `Hiển thị ${filtered.length} / ${packages.length} gói`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-8 text-center text-slate-400">
+                            <i class="fa-solid fa-box-open text-3xl mb-2 text-slate-500"></i>
+                            <p>Không tìm thấy thư viện nào phù hợp</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(pkg => `
+                <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                    <td class="py-3 px-5">
+                        <div class="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                            <span>${pkg.name}</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 font-normal line-clamp-1">${pkg.desc}</div>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs text-anaconda-600 dark:text-anaconda-400 font-medium">
+                        v${pkg.version}
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            ${pkg.category}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        ${pkg.status === 'Up-to-date' 
+                            ? `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-circle-check"></i> Mới nhất</span>`
+                            : `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-500"><i class="fa-solid fa-circle-arrow-up"></i> Có bản cập nhật</span>`
+                        }
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <button onclick="copyToClipboard('pip install ${pkg.name}==${pkg.version}')" title="Sao chép lệnh pip install" class="p-1.5 rounded-lg text-slate-400 hover:text-anaconda-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Filter Handlers
+        function filterPackages() {
+            renderPackagesTable();
+        }
+
+        function setCategoryFilter(category) {
+            currentFilterCategory = category;
+            
+            // Update chip styles
+            document.querySelectorAll('.chip-filter').forEach(btn => {
+                if (btn.textContent.includes(category) || (category === 'all' && btn.textContent.includes('Tất cả'))) {
+                    btn.className = 'chip-filter active px-3 py-1.5 rounded-lg bg-anaconda-500 text-white font-medium transition shrink-0';
+                } else {
+                    btn.className = 'chip-filter px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition shrink-0';
+                }
+            });
+
+            renderPackagesTable();
+        }
+
+        // Copy To Clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast(`Đã sao chép: "${text}"`);
+            }).catch(() => {
+                showToast('Không thể sao chép!', 'error');
+            });
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = type === 'success' ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900' : 'bg-rose-600 text-white';
+            
+            toast.className = `${bgColor} text-xs font-medium px-4 py-3 rounded-xl shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <i class="${type === 'success' ? 'fa-solid fa-circle-check text-anaconda-500' : 'fa-solid fa-triangle-exclamation'}"></i>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Remove after 3s
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Export Modal Generator Logic
+        function openExportModal() {
+            document.getElementById('export-modal').classList.remove('hidden');
+            generateExportPreview();
+        }
+
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+        }
+
+        function switchExportTab(type) {
+            activeExportType = type;
+            const ymlBtn = document.getElementById('tab-yml-btn');
+            const txtBtn = document.getElementById('tab-txt-btn');
+
+            if (type === 'yml') {
+                ymlBtn.className = 'px-4 py-2 font-semibold text-anaconda-500 border-b-2 border-anaconda-500 flex items-center gap-2';
+                txtBtn.className = 'px-4 py-2 font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-2';
+            } else {
+                txtBtn.className = 'px-4 py-2 font-semibold text-anaconda-500 border-b-2 border-anaconda-500 flex items-center gap-2';
+                ymlBtn.className = 'px-4 py-2 font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-2';
+            }
+
+            generateExportPreview();
+        }
+
+        function generateExportPreview() {
+            const packages = environmentsData[currentEnv] || [];
+            const previewElem = document.getElementById('export-preview');
+
+            if (activeExportType === 'yml') {
+                let yml = `name: ${currentEnv}\nchannels:\n  - conda-forge\n  - defaults\ndependencies:\n  - python=3.12.2\n`;
+                packages.forEach(p => {
+                    yml += `  - ${p.name}=${p.version}\n`;
+                });
+                yml += `prefix: C:\\anaconda3\\envs\\${currentEnv}`;
+                previewElem.textContent = yml;
+            } else {
+                let txt = `# Requirements exported for env: ${currentEnv} (Python 3.12.2)\n`;
+                packages.forEach(p => {
+                    txt += `${p.name}==${p.version}\n`;
+                });
+                previewElem.textContent = txt;
+            }
+        }
+
+        function copyExportContent() {
+            const content = document.getElementById('export-preview').textContent;
+            copyToClipboard(content);
+        }
+
+        function downloadExportFile() {
+            const content = document.getElementById('export-preview').textContent;
+            const filename = activeExportType === 'yml' ? 'environment.yml' : 'requirements.txt';
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast(`Đã tải xuống tập tin: ${filename}`);
+            closeExportModal();
+        }
+
+        function updateOverviewInfo() {
+            // Auto detect platform info if available
+            if (navigator.userAgent.includes('Win')) {
+                document.getElementById('card-os-info').textContent = 'Windows 11 / 10';
+            } else if (navigator.userAgent.includes('Mac')) {
+                document.getElementById('card-os-info').textContent = 'macOS Sonoma';
+            } else {
+                document.getElementById('card-os-info').textContent = 'Linux / Ubuntu';
+            }
+        }
+    </script>
+</body>
+</html>
